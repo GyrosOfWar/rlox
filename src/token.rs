@@ -1,5 +1,29 @@
-pub struct Token {}
+#[derive(Debug)]
+pub enum Literal<'a> {
+    String(&'a str),
+    Number(f64),
+}
 
+#[derive(Debug)]
+pub struct Token<'a> {
+    pub ty: TokenType,
+    pub lexeme: &'a str,
+    pub literal: Option<Literal<'a>>,
+    pub line: usize,
+}
+
+impl<'a> Token<'a> {
+    pub fn new(ty: TokenType, lexeme: &'a str, literal: Option<Literal<'a>>, line: usize) -> Self {
+        Self {
+            ty,
+            lexeme,
+            literal,
+            line,
+        }
+    }
+}
+
+#[derive(Debug)]
 #[rustfmt::skip]
 pub enum TokenType {
     // Single-character tokens.
