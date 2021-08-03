@@ -19,8 +19,9 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 fn run(source: &str) {
-    let mut scanner = Scanner::new(source);
+    let scanner = Scanner::new(source);
     let tokens = scanner.scan();
+    log::info!("found tokens {:?}", tokens);
 }
 
 fn run_file(path: impl AsRef<Path>) -> Result<()> {
@@ -47,7 +48,7 @@ fn main() -> Result<()> {
         println!("usage: rlox [script]");
         process::exit(64);
     } else if args.len() == 1 {
-        run_file(&args[1])
+        run_file(&args[0])
     } else {
         run_repl()
     }
