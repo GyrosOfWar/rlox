@@ -21,7 +21,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 fn run(source: &str) {
     let scanner = Scanner::new(source);
     let tokens = scanner.scan();
-    log::info!("found tokens {:?}", tokens);
+    log::info!("found tokens {:#?}", tokens);
 }
 
 fn run_file(path: impl AsRef<Path>) -> Result<()> {
@@ -43,6 +43,8 @@ fn run_repl() -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    std::env::set_var("RUST_LOG", "info");
+    env_logger::init();
     let args: Vec<_> = env::args().skip(1).collect();
     if args.len() > 1 {
         println!("usage: rlox [script]");

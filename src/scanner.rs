@@ -24,12 +24,17 @@ impl<'a> Scanner<'a> {
     }
 
     fn advance(&mut self) -> u8 {
+        let byte = self.source.as_bytes()[self.current];
         self.current += 1;
-        self.source.as_bytes()[self.current]
+        byte
     }
 
     fn peek(&self) -> u8 {
-        self.source.as_bytes()[self.current]
+        if self.at_end() {
+            b'\0'
+        } else {
+            self.source.as_bytes()[self.current]
+        }
     }
 
     fn add_token(&mut self, ty: TokenType) {
@@ -56,11 +61,47 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    fn string(&mut self) {
+        while self.peek() != b'"' && !self.at_end() {
+            if self.peek() == b'\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+
+        if self.at_end() {
+            log::error!("unterminated string");
+            return;
+        }
+
+        // closing "
+        self.advance();
+
+        let text = &self.source[self.start + 1..self.current - 1];
+        self.add_literal_token(TokenType::String, Literal::String(text));
+    }
+
+    fn number(&mut self) {
+        while self.is_digit(self.peek()) {
+            self.advance();
+        }
+
+        if self.peek() == b'.' && self.is_digit(self.peek_next()) {
+            
+        }
+    }
+
+    fn is_digit(&self, c: u8) -> bool {
+        c >= b'0' && c <= b'9'
+    }
+
     fn scan_token(&mut self) {
         use TokenType::*;
 
         let c = self.advance();
         match c {
+            b' ' | b'\t' => {}
+            b'\n' => self.line += 1,
             b'(' => self.add_token(LeftParen),
             b')' => self.add_token(RightParen),
             b'{' => self.add_token(LeftBrace),
@@ -73,15 +114,44 @@ impl<'a> Scanner<'a> {
             b'*' => self.add_token(Star),
             b'!' => {
                 let is_bang_eq = self.matches(b'=');
-                self.add_token(if is_bang_eq { BangEqual } else { Bang });
+                self.add_token(if is_bang_eq { Bang } else { Bang });
+            }
+            b'=' => {
+                let is_eq_eq = self.matches(b'=');
+                self.add_token(if is_eq_eq { EqualEqual } else { Equal })
+            }
+            b'<' => {
+                let is_lt_eq = self.matches(b'=');
+                self.add_token(if is_lt_eq { LessEqual } else { Less });
+            }
+            b'>' => {
+                let is_gt_eq = self.matches(b'=');
+                self.add_token(if is_gt_eq { GreaterEqual } else { Greater });
+            }
+            b'/' => {
+                let is_comment = self.matches(b'/');
+                if is_comment {
+                    while self.peek() != b'\n' && !self.at_end() {
+                        self.advance();
+                    }
+                } else {
+                    self.add_token(Slash);
+                }
+            }
+            b'"' => {
+                self.string();
             }
             _ => {
-                // TODO set error flag?
-                log::error!(
-                    "failed to tokenize, unexpected character at line {}: {}",
-                    self.line,
-                    c as char
-                );
+                if self.is_digit(c) {
+                    self.number();
+                } else {
+                    // TODO set error flag?
+                    log::error!(
+                        "failed to tokenize, unexpected character at line {}: {}",
+                        self.line,
+                        c as char
+                    );
+                }
             }
         }
     }
