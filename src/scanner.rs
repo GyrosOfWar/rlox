@@ -1,4 +1,31 @@
 use crate::token::{Literal, Token, TokenType};
+use lazy_static::lazy_static;
+use std::collections::HashMap;
+
+lazy_static! {
+    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
+        use TokenType::*;
+
+        let mut map = HashMap::new();
+        map.insert("and", And);
+        map.insert("class", Class);
+        map.insert("else", Else);
+        map.insert("false", False);
+        map.insert("for", For);
+        map.insert("fun", Fun);
+        map.insert("if", If);
+        map.insert("nil", Nil);
+        map.insert("or", Or);
+        map.insert("print", Print);
+        map.insert("return", Return);
+        map.insert("super", Super);
+        map.insert("this", This);
+        map.insert("true", True);
+        map.insert("var", Var);
+        map.insert("while", While);
+        map
+    };
+}
 
 pub struct Scanner<'a> {
     source: &'a str,
@@ -87,12 +114,49 @@ impl<'a> Scanner<'a> {
         }
 
         if self.peek() == b'.' && self.is_digit(self.peek_next()) {
-            
+            // eat the '.'
+            self.advance();
+
+            while self.is_digit(self.peek()) {
+                self.advance();
+            }
+        }
+
+        let number: f64 = self.source[self.start..self.current]
+            .parse()
+            .expect("should be able to parse number");
+        self.add_literal_token(TokenType::Number, Literal::Number(number));
+    }
+
+    fn peek_next(&self) -> u8 {
+        if self.current + 1 >= self.source.len() {
+            b'\0'
+        } else {
+            self.source.as_bytes()[self.current + 1]
         }
     }
 
     fn is_digit(&self, c: u8) -> bool {
-        c >= b'0' && c <= b'9'
+        c.is_ascii_digit()
+    }
+
+    fn is_alpha(&self, c: u8) -> bool {
+        c.is_ascii_alphabetic()
+    }
+
+    fn is_alphanumeric(&self, c: u8) -> bool {
+        c.is_ascii_alphanumeric()
+    }
+
+    fn identifier(&mut self) {
+        while self.is_alphanumeric(self.peek()) {
+            self.advance();
+        }
+        let text = &self.source[self.start..self.current];
+        match KEYWORDS.get(&text) {
+            Some(ty) => self.add_token(*ty),
+            _ => self.add_token(TokenType::Identifier),
+        }
     }
 
     fn scan_token(&mut self) {
@@ -100,12 +164,12 @@ impl<'a> Scanner<'a> {
 
         let c = self.advance();
         match c {
-            b' ' | b'\t' => {}
+            b' ' | b'\t' | b'\r' => {}
             b'\n' => self.line += 1,
             b'(' => self.add_token(LeftParen),
             b')' => self.add_token(RightParen),
             b'{' => self.add_token(LeftBrace),
-            b'}' => self.add_token(RightParen),
+            b'}' => self.add_token(RightBrace),
             b',' => self.add_token(Comma),
             b'.' => self.add_token(Dot),
             b'-' => self.add_token(Minus),
@@ -114,7 +178,7 @@ impl<'a> Scanner<'a> {
             b'*' => self.add_token(Star),
             b'!' => {
                 let is_bang_eq = self.matches(b'=');
-                self.add_token(if is_bang_eq { Bang } else { Bang });
+                self.add_token(if is_bang_eq { BangEqual } else { Bang });
             }
             b'=' => {
                 let is_eq_eq = self.matches(b'=');
@@ -144,13 +208,17 @@ impl<'a> Scanner<'a> {
             _ => {
                 if self.is_digit(c) {
                     self.number();
+                } else if self.is_alpha(c) {
+                    self.identifier();
                 } else {
-                    // TODO set error flag?
                     log::error!(
-                        "failed to tokenize, unexpected character at line {}: {}",
+                        "failed to tokenize, unexpected character at line {}: '{}' (ascii {})",
                         self.line,
-                        c as char
+                        c as char,
+                        c
                     );
+
+                    panic!("failed to tokenize");
                 }
             }
         }
