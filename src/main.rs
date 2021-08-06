@@ -9,6 +9,7 @@ use thiserror::Error;
 
 mod scanner;
 mod token;
+mod expr;
 
 #[derive(Error, Debug)]
 pub enum Error {
