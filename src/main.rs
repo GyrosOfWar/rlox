@@ -7,9 +7,10 @@ use std::{
 };
 use thiserror::Error;
 
+mod expr;
+mod parser;
 mod scanner;
 mod token;
-mod expr;
 
 #[derive(Error, Debug)]
 pub enum Error {
